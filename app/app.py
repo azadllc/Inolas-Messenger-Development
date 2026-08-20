@@ -85,24 +85,18 @@ def home() -> rx.Component:
     )
 
 
+# Line 88 se lekar 100 tak ke block ko aise badlein:
 app = rx.App(
+    admin_dash=False,  # 🌟 Yeh line yahan pehle block ke andar aayegi!
     theme=rx.theme(appearance="light"),
     head_components=[
-        rx.el.link(rel="preconnect", href="https://fonts.googleapis.com"),
+        rx.el.link(rel="preconnect", href="https://googleapis.com"),
         rx.el.link(
-            rel="preconnect", href="https://fonts.gstatic.com", cross_origin=""
+            rel="preconnect", href="https://gstatic.com", cross_origin=""
         ),
         rx.el.link(
-            href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap",
+            href="https://googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap",
             rel="stylesheet",
         ),
     ],
-)
-app.add_page(index, route="/", on_load=AuthState.handle_root_session)
-app.add_page(onboarding, route="/onboarding", on_load=AuthState.restore_session)
-app.add_page(home, route="/home", on_load=AuthState.restore_session)
-app.add_page(
-    oauth_callback_page,
-    route="/auth/callback",
-    on_load=AuthState.handle_oauth_callback,
 )
