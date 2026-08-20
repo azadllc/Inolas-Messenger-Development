@@ -1,17 +1,10 @@
 import reflex as rx
-from app.deploy_setup import ensure_deployment_files
 from app.states.auth_state import AuthState
 from app.components.auth_layout import auth_layout
 from app.components.auth_forms import auth_card
 from app.components.onboarding_flow import onboarding_card
 from app.components.home_layout import home_layout
 from app.components.oauth_callback import oauth_callback_page
-
-# Materialize the real root-level deployment files (Dockerfile, start.sh,
-# Caddyfile, host configs, .env.example, DEPLOYMENT.md, vercel.json) from the
-# canonical sources in app/deploy/. Non-destructive: existing non-empty files
-# are kept. Nothing about the app's UI, routes or auth behavior is affected.
-ensure_deployment_files()
 
 
 def verifying_screen() -> rx.Component:
@@ -101,4 +94,12 @@ app = rx.App(
             "div[style*='position: fixed'][style*='bottom:'][style*='right:'] { display: none !important; opacity: 0 !important; visibility: hidden !important; pointer-events: none !important; }"
         ),
     ],
+)
+app.add_page(index, route="/", on_load=AuthState.handle_root_session)
+app.add_page(onboarding, route="/onboarding", on_load=AuthState.restore_session)
+app.add_page(home, route="/home", on_load=AuthState.restore_session)
+app.add_page(
+    oauth_callback_page,
+    route="/auth/callback",
+    on_load=AuthState.handle_oauth_callback,
 )
