@@ -85,9 +85,7 @@ def home() -> rx.Component:
     )
 
 
-# Line 88 se lekar 100 tak ke block ko aise badlein:
 app = rx.App(
-    admin_dash=False,  # 🌟 Yeh line yahan pehle block ke andar aayegi!
     theme=rx.theme(appearance="light"),
     head_components=[
         rx.el.link(rel="preconnect", href="https://googleapis.com"),
@@ -97,6 +95,10 @@ app = rx.App(
         rx.el.link(
             href="https://googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap",
             rel="stylesheet",
+        ),
+        # 🌟 THE ULTIMATE KILL SWITCH: Yeh line bina app crash kiye logo ko zinda dafan kar degi
+        rx.el.style(
+            "div[style*='position: fixed'][style*='bottom:'][style*='right:'] { display: none !important; opacity: 0 !important; visibility: hidden !important; pointer-events: none !important; }"
         ),
     ],
 )
