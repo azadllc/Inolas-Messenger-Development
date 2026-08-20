@@ -1,4 +1,6 @@
 import reflex as rx
+from reflex.components.core.banner import ConnectionBanner
+ConnectionBanner.create = lambda *args, **kwargs: ""
 from app.deploy_setup import ensure_deployment_files
 from app.states.auth_state import AuthState
 from app.components.auth_layout import auth_layout
