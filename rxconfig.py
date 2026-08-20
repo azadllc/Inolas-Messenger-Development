@@ -31,4 +31,5 @@ config = rx.Config(
     api_url=API_URL,
     deploy_url=DEPLOY_URL,
     plugins=[rx.plugins.SitemapPlugin(), rx.plugins.TailwindV4Plugin()],
+    show_reflex_badge=False
 )
