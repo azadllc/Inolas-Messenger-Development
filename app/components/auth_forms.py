@@ -42,7 +42,7 @@ def social_buttons() -> rx.Component:
         rx.cond(
             AuthState.oauth_redirect_target != "",
             rx.el.p(
-                f"Redirecting to: {AuthState.oauth_redirect_target}",
+                f"Redirecting to: {AuthState.oauth_redirect_target} ({AuthState.oauth_redirect_source})",
                 class_name="text-[10px] text-gray-400 text-center mt-1",
             ),
             rx.fragment(),

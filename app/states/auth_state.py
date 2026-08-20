@@ -5,8 +5,97 @@ import logging
 import asyncio
 import traceback
 from collections.abc import Mapping
-from urllib.parse import parse_qs
+from urllib.parse import parse_qs, urlsplit
 from supabase import create_client, Client
+
+
+CALLBACK_PATH = "/auth/callback"
+FALLBACK_BASE_URL = "https://inolas-messenger-development-teal-book.reflex.run"
+
+# Environment variables commonly used by hosting platforms to expose the
+# public base URL / hostname of the deployment. Checked in priority order.
+BASE_URL_ENV_VARS: tuple[str, ...] = (
+    "OAUTH_REDIRECT_URL",
+    "OAUTH_CALLBACK_URL",
+    "APP_BASE_URL",
+    "PUBLIC_BASE_URL",
+    "SITE_URL",
+    "NEXT_PUBLIC_SITE_URL",
+    "REFLEX_DEPLOY_URL",
+    "REFLEX_FRONTEND_URL",
+    "FRONTEND_URL",
+    "VERCEL_PROJECT_PRODUCTION_URL",
+    "VERCEL_URL",
+    "RENDER_EXTERNAL_URL",
+    "RAILWAY_PUBLIC_DOMAIN",
+    "RAILWAY_STATIC_URL",
+    "FLY_APP_NAME_URL",
+    "HEROKU_APP_DEFAULT_DOMAIN_NAME",
+    "WEBSITE_HOSTNAME",
+    "DEPLOY_URL",
+    "URL",
+)
+
+_LOCAL_HOSTS = ("localhost", "127.0.0.1", "0.0.0.0", "[::1]", "::1")
+
+
+def _is_local_host(host: str) -> bool:
+    bare = host.split(":")[0].strip().lower()
+    return bare in _LOCAL_HOSTS or bare.endswith(".local")
+
+
+def _normalize_base_url(raw: object) -> str:
+    """Turn a raw env/router value into an absolute origin (scheme://host[:port]).
+
+    Accepts values like ``localhost:3000``, ``my-app.vercel.app``,
+    ``https://x.up.railway.app/auth/callback`` or a full page URL and returns
+    just the origin, or "" when nothing usable can be derived.
+    """
+    if not _is_real_str(raw):
+        return ""
+    value = str(raw).strip().strip('"').strip("'")
+    if value.startswith("//"):
+        value = value[2:]
+    if "://" not in value:
+        scheme = "http" if _is_local_host(value) else "https"
+        value = f"{scheme}://{value}"
+    try:
+        parts = urlsplit(value)
+    except Exception as e:
+        logging.exception(f"Callback base URL parse error: {e}")
+        return ""
+    scheme = (parts.scheme or "").lower()
+    host = parts.netloc.strip()
+    if scheme not in ("http", "https") or not host:
+        return ""
+    if _is_local_host(host):
+        scheme = "http"
+    return f"{scheme}://{host.rstrip('/')}"
+
+
+def _base_url_to_callback(base_url: str) -> str:
+    normalized = _normalize_base_url(base_url)
+    if not normalized:
+        return ""
+    return f"{normalized}{CALLBACK_PATH}"
+
+
+def _callback_url_from_env() -> tuple[str, str]:
+    """Resolve a callback URL from environment variables.
+
+    Returns (callback_url, source_name); both empty when nothing is set.
+    """
+    for name in BASE_URL_ENV_VARS:
+        raw = os.getenv(name)
+        if not _is_real_str(raw):
+            continue
+        url = _base_url_to_callback(raw)
+        if url:
+            return url, f"env:{name}"
+        logging.info(
+            f"Callback URL resolver: ignoring unusable value in {name}"
+        )
+    return "", ""
 
 
 _supabase_client: Client | None = None
@@ -455,10 +544,52 @@ class AuthState(rx.State):
     oauth_callback_status: str = "processing"  # processing | success | error
     oauth_callback_error: str = ""
     oauth_redirect_target: str = ""  # Diagnostic field for OAuth URL
+    oauth_redirect_source: str = ""  # Where the callback URL came from
+
+    def _router_origin(self) -> str:
+        """Best-effort origin of the current request, or "" when unavailable."""
+        candidates: list[object] = []
+        try:
+            url = self.router.url
+            candidates.append(getattr(url, "origin", None))
+            candidates.append(str(url) if url is not None else None)
+        except Exception as e:
+            logging.exception(f"Router URL unavailable: {e}")
+        try:
+            candidates.append(self.router.headers.origin)
+        except Exception:
+            logging.exception("Unexpected error")
+            logging.info("Router origin header unavailable")
+        try:
+            candidates.append(self.router.headers.host)
+        except Exception:
+            logging.exception("Unexpected error")
+            logging.info("Router host header unavailable")
+        for candidate in candidates:
+            origin = _normalize_base_url(candidate)
+            if origin:
+                return origin
+        return ""
 
     def _compute_callback_url(self) -> str:
-        # Always return the explicit production callback URL as requested.
-        return "https://inolas-messenger-development-teal-book.reflex.run/auth/callback"
+        """Resolve a deployment-portable absolute OAuth callback URL.
+
+        Priority: explicit env override -> hosting base URL env vars ->
+        request/router origin -> known production URL fallback.
+        Only non-sensitive information is logged.
+        """
+        url, source = _callback_url_from_env()
+        if not url:
+            origin = self._router_origin()
+            if origin:
+                url = f"{origin}{CALLBACK_PATH}"
+                source = "request-origin"
+        if not url:
+            url = _base_url_to_callback(FALLBACK_BASE_URL)
+            source = "fallback"
+        self.oauth_redirect_source = source
+        logging.info(f"OAuth callback URL resolved from {source}: {url}")
+        return url
 
     @rx.event
     async def google_signin(self):
