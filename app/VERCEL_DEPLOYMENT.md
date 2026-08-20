@@ -10,35 +10,58 @@ the underlying ASGI application in a version-tolerant way, and exports it as
 both `app` and `handler`. Nothing about the UI, routes, state, auth flows or
 messenger interface changes.
 
-## Repository-root files to add
+## Create the project-root files (one command)
 
-Vercel requires these two files at the repository root (they cannot be created
-inside `app/`):
+Vercel reads the function entrypoint and its configuration only from the
+project root — in this workspace that is the current directory containing
+`rxconfig.py` — and this workspace can only write files under `app/`. Run the
+root-generation helper once from that directory:
 
-`api/index.py`
-
-```python
-from app.vercel_asgi import app  # noqa: F401
+```bash
+python -m app.vercel_setup          # add --force to overwrite existing files
+python -m app.vercel_setup --root /path/to/project   # explicit root
 ```
 
-`vercel.json`
+The helper resolves the project root from `Path.cwd()` (walking up only if
+needed until it finds `rxconfig.py`), never relative to the `app` package, and
+prints the root it used. It writes:
 
-```json
-{
-  "version": 2,
-  "builds": [
-    {
-      "src": "api/index.py",
-      "use": "@vercel/python",
-      "config": { "runtime": "python3.12", "maxLambdaSize": "50mb" }
-    }
-  ],
-  "rewrites": [{ "source": "/(.*)", "destination": "/api/index.py" }]
-}
+- `api/index.py` — resolves the repository root, adds it to `sys.path` safely,
+  and re-exports the ASGI application from `app/vercel_asgi.py` as both `app`
+  and `handler`.
+- `vercel.json` — builds `api/index.py` with `@vercel/python` on the supported
+  `python3.12` runtime (50 MB lambda size) and rewrites every path to that
+  function.
+
+The generated entrypoint is copied straight from `app/api/index.py`, which is
+kept as the canonical, reviewable source of that file (it imports
+`app.vercel_asgi`). If you prefer copying by hand:
+
+```bash
+mkdir -p api
+cp app/api/index.py api/index.py
 ```
 
-The catch-all rewrite keeps every existing route working, including `/`,
-`/onboarding`, `/home` and the OAuth callback at `/auth/callback`.
+and create `vercel.json` with the content embedded in `app/vercel_setup.py`
+(`VERCEL_JSON_SOURCE`).
+
+After generation the project root contains:
+
+```
+vercel.json
+api/index.py
+requirements.txt
+rxconfig.py
+app/...
+```
+
+The catch-all rewrite (`/(.*)` → `/api/index.py`) keeps every existing route
+working, including `/`, `/onboarding`, `/home` and the OAuth callback at
+`/auth/callback`.
+
+Deploying is then just: push the repository and import it into a Vercel project
+(or run `vercel --prod`). Dependencies are installed from the existing root
+`requirements.txt`.
 
 ## Environment variables
 
