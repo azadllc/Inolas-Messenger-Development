@@ -490,15 +490,7 @@ class AuthState(rx.State):
             self.is_loading = False
             self.error_message = _friendly_error(e)
 
-    @rx.event
-    async def handle_oauth_callback(self):
-        """Handle Supabase OAuth callback: exchange code and finalize session."""
-        self.oauth_callback_status = "processing"
-        self.oauth_callback_error = ""
-        self.session_verifying = True
-        self.session_verified = False
-        yield
-
+    def _read_oauth_callback_params(self) -> dict[str, str]:
         params: dict[str, str] = {}
         try:
             page_params = _normalize_callback_params(self.router.page.params)
@@ -509,15 +501,29 @@ class AuthState(rx.State):
             params.update(query_parameter_values)
             params.update(page_params)
             params.update(query_params)
-        except Exception:
-            logging.exception("Unexpected error")
+        except Exception as e:
+            logging.exception(f"OAuth callback parameter parsing error: {e}")
             print(traceback.format_exc())
-            params = {}
+        return params
 
+    async def _oauth_callback_flow(self):
+        """Run the shared OAuth callback exchange and routing flow."""
+        self.oauth_callback_status = "processing"
+        self.oauth_callback_error = ""
+        self.error_message = ""
+        self.is_loading = False
+        self.session_verifying = True
+        self.session_verified = False
+        yield
+
+        params = self._read_oauth_callback_params()
         err = params.get("error_description") or params.get("error") or ""
         if err:
             self.oauth_callback_status = "error"
             self.oauth_callback_error = _friendly_error(Exception(err))
+            self.error_message = self.oauth_callback_error
+            self.session_verifying = False
+            self.session_verified = True
             return
         code = params.get("code", "")
         if not code:
@@ -601,8 +607,10 @@ class AuthState(rx.State):
                 raise RuntimeError("Failed to exchange code for session")
             # Persist tokens and identity BEFORE any redirect
             self._apply_session(session, user)
-            if not self.access_token:
-                raise RuntimeError("Session missing access token")
+            if not self._has_real_session():
+                raise RuntimeError(
+                    "Session missing access token or user identity"
+                )
             self.auth_method = "google"
             # Session fields are set; mark authenticated BEFORE finalize so
             # any profile enrichment failure cannot bounce us to login.
@@ -634,6 +642,35 @@ class AuthState(rx.State):
             self.session_verified = True
             self.oauth_callback_status = "error"
             self.oauth_callback_error = _friendly_error(e)
+
+    @rx.event
+    async def handle_root_session(self):
+        """Route root visits through OAuth handling when callback parameters exist."""
+        try:
+            current_path = self.router.page.path or "/"
+            params = self._read_oauth_callback_params()
+            has_oauth_callback = current_path == "/" and (
+                "code" in params
+                or "error" in params
+                or "error_description" in params
+            )
+        except Exception as e:
+            logging.exception(f"Root session routing error: {e}")
+            print(traceback.format_exc())
+            has_oauth_callback = False
+
+        if has_oauth_callback:
+            async for event in self._oauth_callback_flow():
+                yield event
+            return
+        async for event in self._restore_session_flow():
+            yield event
+
+    @rx.event
+    async def handle_oauth_callback(self):
+        """Handle Supabase OAuth callback: exchange code and finalize session."""
+        async for event in self._oauth_callback_flow():
+            yield event
 
     @rx.event
     def retry_from_callback(self):
@@ -746,8 +783,7 @@ class AuthState(rx.State):
             logging.exception(f"Skip profile error: {e}")
             self.error_message = _friendly_error(e)
 
-    @rx.event
-    async def restore_session(self):
+    async def _restore_session_flow(self):
         """Restore Supabase session from stored refresh token, then route accordingly."""
         # Mark verification in progress so protected routes wait instead of
         # bouncing to /login while we validate.
@@ -873,6 +909,11 @@ class AuthState(rx.State):
             self.user_id = ""
             self.session_verifying = False
             self.session_verified = True
+
+    @rx.event
+    async def restore_session(self):
+        async for event in self._restore_session_flow():
+            yield event
 
     @rx.event
     async def logout(self):

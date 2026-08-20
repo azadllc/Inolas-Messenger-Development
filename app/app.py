@@ -91,7 +91,7 @@ app = rx.App(
         ),
     ],
 )
-app.add_page(index, route="/", on_load=AuthState.restore_session)
+app.add_page(index, route="/", on_load=AuthState.handle_root_session)
 app.add_page(onboarding, route="/onboarding", on_load=AuthState.restore_session)
 app.add_page(home, route="/home", on_load=AuthState.restore_session)
 app.add_page(
