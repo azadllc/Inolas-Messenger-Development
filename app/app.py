@@ -1,5 +1,6 @@
 import reflex as rx
 from app.states.auth_state import AuthState
+from app.states.messenger_state import MessengerState
 from app.components.auth_layout import auth_layout
 from app.components.auth_forms import auth_card
 from app.components.onboarding_flow import onboarding_card
@@ -97,7 +98,11 @@ app = rx.App(
 )
 app.add_page(index, route="/", on_load=AuthState.handle_root_session)
 app.add_page(onboarding, route="/onboarding", on_load=AuthState.restore_session)
-app.add_page(home, route="/home", on_load=AuthState.restore_session)
+app.add_page(
+    home,
+    route="/home",
+    on_load=[AuthState.restore_session, MessengerState.load_messenger_data],
+)
 app.add_page(
     oauth_callback_page,
     route="/auth/callback",

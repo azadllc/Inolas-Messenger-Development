@@ -6,17 +6,7 @@ from app.components.messenger_widgets import avatar
 def search_result_card(user: UserData) -> rx.Component:
     return rx.el.div(
         rx.el.div(
-            rx.el.div(
-                avatar(user["avatar_seed"], "h-12 w-12"),
-                rx.cond(
-                    user["online"],
-                    rx.el.span(
-                        class_name="absolute bottom-0 right-0 h-3.5 w-3.5 rounded-full bg-green-500 border-2 border-white dark:border-gray-950"
-                    ),
-                    rx.fragment(),
-                ),
-                class_name="relative shrink-0",
-            ),
+            avatar(user["avatar_seed"], "h-12 w-12"),
             rx.el.div(
                 rx.el.p(
                     user["display_name"],
@@ -30,20 +20,6 @@ def search_result_card(user: UserData) -> rx.Component:
                     user["bio"],
                     class_name="text-xs text-gray-600 dark:text-gray-300 truncate mt-1",
                 ),
-                rx.el.div(
-                    rx.cond(
-                        user["online"],
-                        rx.el.span(
-                            "● Online",
-                            class_name="text-xs font-medium text-green-600 dark:text-green-400",
-                        ),
-                        rx.el.span(
-                            user["last_seen"],
-                            class_name="text-xs text-gray-400",
-                        ),
-                    ),
-                    class_name="mt-1",
-                ),
                 class_name="flex-1 min-w-0",
             ),
             class_name="flex items-start gap-3 flex-1 min-w-0",
@@ -56,10 +32,17 @@ def search_result_card(user: UserData) -> rx.Component:
                 class_name="flex items-center gap-1.5 px-3 py-1.5 bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-200 rounded-lg transition-colors",
             ),
             rx.el.button(
-                rx.icon("message-circle", class_name="h-4 w-4"),
+                rx.cond(
+                    MessengerState.starting_chat,
+                    rx.el.div(
+                        class_name="h-4 w-4 border-2 border-white/40 border-t-white rounded-full animate-spin"
+                    ),
+                    rx.icon("message-circle", class_name="h-4 w-4"),
+                ),
                 rx.el.span("Message", class_name="text-xs font-semibold"),
                 on_click=lambda: MessengerState.message_user(user["username"]),
-                class_name="flex items-center gap-1.5 px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg transition-colors",
+                disabled=MessengerState.starting_chat,
+                class_name="flex items-center gap-1.5 px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-60 text-white rounded-lg transition-colors",
             ),
             class_name="flex items-center gap-2 shrink-0",
         ),
@@ -108,34 +91,74 @@ def search_panel() -> rx.Component:
                     class_name="text-lg font-semibold text-gray-900 dark:text-white text-center mb-1",
                 ),
                 rx.el.p(
-                    "Try searching for @emma, @marcus, or any friend's name",
+                    "Type an @username or a person's name to find them on Inolas",
                     class_name="text-sm text-gray-500 dark:text-gray-400 text-center",
                 ),
                 class_name="py-16",
             ),
             rx.cond(
-                MessengerState.search_results.length() == 0,
+                MessengerState.search_loading,
                 rx.el.div(
-                    rx.icon(
-                        "search-x",
-                        class_name="h-10 w-10 text-gray-300 mx-auto mb-3",
+                    rx.el.div(
+                        class_name="h-8 w-8 border-2 border-indigo-200 border-t-indigo-600 rounded-full animate-spin mx-auto mb-3"
                     ),
                     rx.el.p(
-                        "No results found",
-                        class_name="text-sm font-medium text-gray-500 text-center",
+                        "Searching profiles...",
+                        class_name="text-sm text-gray-500 dark:text-gray-400 text-center",
                     ),
                     class_name="py-16",
                 ),
-                rx.el.div(
-                    rx.el.p(
-                        f"{MessengerState.search_results.length()} result(s)",
-                        class_name="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-3",
-                    ),
+                rx.cond(
+                    MessengerState.search_error != "",
                     rx.el.div(
-                        rx.foreach(
-                            MessengerState.search_results, search_result_card
+                        rx.icon(
+                            "triangle-alert",
+                            class_name="h-10 w-10 text-amber-500 mx-auto mb-3",
                         ),
-                        class_name="flex flex-col gap-2",
+                        rx.el.p(
+                            MessengerState.search_error,
+                            class_name="text-sm font-medium text-gray-600 dark:text-gray-300 text-center",
+                        ),
+                        rx.el.button(
+                            rx.icon("refresh-cw", class_name="h-4 w-4"),
+                            rx.el.span(
+                                "Try again", class_name="text-xs font-semibold"
+                            ),
+                            on_click=MessengerState.search_profiles,
+                            class_name="flex items-center gap-1.5 px-3 py-2 mx-auto mt-4 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl transition-colors",
+                        ),
+                        class_name="py-16",
+                    ),
+                    rx.cond(
+                        MessengerState.search_results.length() == 0,
+                        rx.el.div(
+                            rx.icon(
+                                "search-x",
+                                class_name="h-10 w-10 text-gray-300 mx-auto mb-3",
+                            ),
+                            rx.el.p(
+                                "No people found",
+                                class_name="text-sm font-medium text-gray-500 text-center",
+                            ),
+                            rx.el.p(
+                                "Check the spelling or try another @username",
+                                class_name="text-xs text-gray-400 text-center mt-1",
+                            ),
+                            class_name="py-16",
+                        ),
+                        rx.el.div(
+                            rx.el.p(
+                                f"{MessengerState.search_results.length()} result(s)",
+                                class_name="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-3",
+                            ),
+                            rx.el.div(
+                                rx.foreach(
+                                    MessengerState.search_results,
+                                    search_result_card,
+                                ),
+                                class_name="flex flex-col gap-2",
+                            ),
+                        ),
                     ),
                 ),
             ),

@@ -32,7 +32,7 @@ def sidebar() -> rx.Component:
         rx.el.nav(
             nav_item("message-square", "Chats", "chats"),
             nav_item("search", "Discover", "search"),
-            nav_item("settings", "Settings", "settings"),
+            nav_item("settings", "Account", "settings"),
             class_name="flex flex-col gap-1 p-3 flex-1",
         ),
         rx.el.div(
@@ -73,7 +73,7 @@ def sidebar() -> rx.Component:
 from app.components.chat_list import chat_list
 from app.components.chat_view import chat_view
 from app.components.search_panel import search_panel
-from app.components.settings_panel import settings_panel
+from app.components.account_panel import account_panel
 from app.components.profile_panel import profile_panel
 from app.components.messenger_widgets import toast
 
@@ -105,7 +105,7 @@ def main_content() -> rx.Component:
             ),
         ),
         ("search", search_panel()),
-        ("settings", settings_panel()),
+        ("settings", account_panel()),
         chat_list(),
     )
 

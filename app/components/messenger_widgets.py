@@ -14,16 +14,6 @@ def avatar(seed: rx.Var | str, size: str = "h-10 w-10") -> rx.Component:
     )
 
 
-def online_dot(online: rx.Var) -> rx.Component:
-    return rx.cond(
-        online,
-        rx.el.span(
-            class_name="absolute bottom-0 right-0 h-3 w-3 rounded-full bg-green-500 border-2 border-white dark:border-gray-950"
-        ),
-        rx.fragment(),
-    )
-
-
 def toast() -> rx.Component:
     return rx.cond(
         MessengerState.toast_message != "",

@@ -22,13 +22,15 @@ def brand_panel() -> rx.Component:
                 class_name="text-4xl xl:text-5xl font-bold text-gray-900 dark:text-white leading-tight tracking-tight mb-4",
             ),
             rx.el.p(
-                "Sign in to sync chats, share media, and stay connected across every device.",
+                "Sign in to find people by their @username and pick up your direct messages where you left off.",
                 class_name="text-lg text-gray-600 dark:text-gray-400 mb-10 max-w-md",
             ),
             rx.el.div(
-                feature_item("shield-check", "End-to-end privacy controls"),
-                feature_item("zap", "Real-time messages and typing"),
-                feature_item("users", "Group chats up to 500 members"),
+                feature_item("at-sign", "Find anyone by their @username"),
+                feature_item("message-square", "One-to-one direct messages"),
+                feature_item(
+                    "shield-check", "Private conversations, saved securely"
+                ),
                 feature_item("smartphone", "Available on all your devices"),
                 class_name="flex flex-col gap-4",
             ),
