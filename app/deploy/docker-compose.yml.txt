@@ -1,0 +1,25 @@
+# Local / VPS single-container run:
+#   docker compose up --build
+# Then open http://localhost:8080
+services:
+  app:
+    build:
+      context: .
+      args:
+        # For localhost the frontend talks to the same origin.
+        API_URL: "http://localhost:8080"
+    ports:
+      - "8080:8080"
+    environment:
+      PORT: "8080"
+      BACKEND_PORT: "8000"
+      API_URL: "http://localhost:8080"
+      # OAuth callback must match the Supabase redirect allow-list.
+      APP_BASE_URL: "http://localhost:8080"
+      SUPABASE_URL: "${SUPABASE_URL}"
+      SUPABASE_KEY: "${SUPABASE_KEY}"
+      OPENAI_API_KEY: "${OPENAI_API_KEY}"
+      REFLEX_DB_URL: "${REFLEX_DB_URL}"
+      GOOGLE_CLIENT_ID: "${GOOGLE_CLIENT_ID}"
+      GOOGLE_CLIENT_SECRET: "${GOOGLE_CLIENT_SECRET}"
+    restart: unless-stopped

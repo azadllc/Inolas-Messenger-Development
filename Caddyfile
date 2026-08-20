@@ -1,0 +1,33 @@
+# Single-port front door for the Reflex app.
+#
+# Static frontend is served from the export output; every backend endpoint is
+# reverse-proxied to the Reflex backend. `reverse_proxy` forwards the
+# Connection/Upgrade headers, so the event WebSocket keeps working — this app is
+# stateful and REQUIRES that websocket.
+
+{
+	admin off
+	auto_https off
+}
+
+:{$PORT:8080} {
+	encode zstd gzip
+
+	@backend path /_event* /_upload* /_health* /_all_routes* /ping*
+	handle @backend {
+		reverse_proxy 127.0.0.1:{$BACKEND_PORT:8000} {
+			flush_interval -1
+		}
+	}
+
+	handle {
+		root * /app/.web/build/client
+		try_files {path} {path}/ {path}.html /index.html
+		file_server
+	}
+
+	log {
+		output stdout
+		format console
+	}
+}

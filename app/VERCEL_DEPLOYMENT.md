@@ -1,5 +1,15 @@
 # Vercel deployment (Python serverless entrypoint)
 
+> **Not the primary supported target.** Vercel's Python runtime is serverless:
+> functions are short-lived, cannot keep per-user Reflex state in memory between
+> requests and do not support long-lived WebSocket connections. This app needs
+> both, so treat this path as best-effort/experimental — session restore, the
+> messenger view and the OAuth callback may not behave correctly.
+>
+> The supported path is the portable single container documented in
+> `app/DEPLOYMENT.md` (`python -m app.deploy_setup` writes the Dockerfile,
+> Caddyfile, start script and host configs to the project root).
+
 The Reflex backend crashed on Vercel because the serverless function imported
 `app.app`, which exposes an `rx.App` instance — not an ASGI application. The
 Vercel Python runtime requires a module-level ASGI/WSGI callable named `app`
