@@ -113,6 +113,23 @@ def project_root(start: Path | None = None) -> Path:
 repository_root = project_root
 
 
+def vercel_json_source() -> str:
+    """Return the vercel.json content, preferring the canonical ``app/vercel.json.txt``."""
+    canonical = Path(__file__).resolve().parent / "vercel.json.txt"
+    try:
+        if canonical.exists():
+            content = canonical.read_text()
+            if "@vercel/python" in content:
+                return content
+            logging.warning(
+                f"{canonical} does not configure @vercel/python; "
+                "falling back to the embedded configuration."
+            )
+    except OSError as e:
+        logging.exception(f"Error reading {canonical}: {e}")
+    return VERCEL_JSON_SOURCE
+
+
 def entrypoint_source() -> str:
     """Return the entrypoint code, preferring the canonical ``app/api/index.py``."""
     canonical = Path(__file__).resolve().parent / "api" / "index.py"
@@ -134,8 +151,13 @@ def _write(path: Path, content: str, force: bool) -> str:
     try:
         path.parent.mkdir(parents=True, exist_ok=True)
         if path.exists() and not force:
-            if path.read_text() == content:
+            existing = path.read_text()
+            if existing == content:
                 return f"unchanged: {path}"
+            if not existing.strip():
+                # An empty placeholder file is never a valid config: fill it in.
+                path.write_text(content)
+                return f"wrote (was empty): {path}"
             return f"skipped (exists, use --force): {path}"
         path.write_text(content)
         return f"wrote: {path}"
@@ -150,7 +172,7 @@ def generate(force: bool = False, root: Path | None = None) -> list[str]:
     return [
         f"project root: {target}",
         _write(target / "api" / "index.py", entrypoint_source(), force),
-        _write(target / "vercel.json", VERCEL_JSON_SOURCE, force),
+        _write(target / "vercel.json", vercel_json_source(), force),
     ]
 
 

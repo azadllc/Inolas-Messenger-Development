@@ -33,17 +33,42 @@ prints the root it used. It writes:
   `python3.12` runtime (50 MB lambda size) and rewrites every path to that
   function.
 
-The generated entrypoint is copied straight from `app/api/index.py`, which is
-kept as the canonical, reviewable source of that file (it imports
-`app.vercel_asgi`). If you prefer copying by hand:
+The generated files are copied straight from the canonical, reviewable sources
+kept in this package: `app/api/index.py` (imports `app.vercel_asgi`) and
+`app/vercel.json.txt`. An existing but **empty** root `vercel.json` is filled in
+automatically, without `--force`.
+
+If you prefer copying by hand:
 
 ```bash
 mkdir -p api
 cp app/api/index.py api/index.py
+cp app/vercel.json.txt vercel.json
 ```
 
-and create `vercel.json` with the content embedded in `app/vercel_setup.py`
-(`VERCEL_JSON_SOURCE`).
+The required root `vercel.json` content is exactly:
+
+```json
+{
+  "version": 2,
+  "builds": [
+    {
+      "src": "api/index.py",
+      "use": "@vercel/python",
+      "config": {
+        "runtime": "python3.12",
+        "maxLambdaSize": "50mb"
+      }
+    }
+  ],
+  "rewrites": [
+    {
+      "source": "/(.*)",
+      "destination": "/api/index.py"
+    }
+  ]
+}
+```
 
 After generation the project root contains:
 
